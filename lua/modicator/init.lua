@@ -58,6 +58,8 @@ local function warn_missing_options(opts)
   end
 end
 
+
+
 --- @param opts table
 local function check_deprecated_config(opts)
   if opts.highlights and opts.highlights.modes then
@@ -183,6 +185,16 @@ local function set_highlight_groups()
   update_mode()
 end
 
+local function clamp(component)
+  return math.min(math.max(component, 0), 255)
+end
+function LightenDarkenColor(num, amt)
+  local r = math.floor(num / 0x10000) + amt
+  local g = (math.floor(num / 0x100) % 0x100) + amt
+  local b = (num % 0x100) + amt
+  return string.format("#%x", clamp(r) * 0x10000 + clamp(g) * 0x100 + clamp(b))
+end
+
 --- Set the foreground and background color of 'CursorLineNr'. Accepts any
 --- highlight definition map that `vim.api.nvim_set_hl()` does.
 --- @param hl_name string
@@ -193,7 +205,10 @@ M.set_cursor_line_highlight = function(hl_name)
     local cl = require('modicator.utils').get_highlight('CursorLine')
     hl = vim.tbl_extend('keep', { bg = cl.bg }, hl)
   end
+
+  local line_bg = LightenDarkenColor(hl['bg'], -100)
   api.nvim_set_hl(0, 'CursorLineNr', hl)
+  api.nvim_set_hl(0, 'CursorLine', { bg = line_bg })
   api.nvim_set_hl(0, 'CursorLineFold', hl)
   api.nvim_set_hl(0, 'CursorLineSign', hl)
 
