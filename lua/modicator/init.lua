@@ -194,6 +194,8 @@ M.set_cursor_line_highlight = function(hl_name)
     hl = vim.tbl_extend('keep', { bg = cl.bg }, hl)
   end
   api.nvim_set_hl(0, 'CursorLineNr', hl)
+  api.nvim_set_hl(0, 'CursorLineFold', hl)
+  api.nvim_set_hl(0, 'CursorLineSign', hl)
 
   local is_register_executing = vim.fn.reg_executing() ~= ""
 
