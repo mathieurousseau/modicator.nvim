@@ -132,6 +132,17 @@ local function set_highlight_groups()
   update_mode()
 end
 
+-- mathieurousseau -> lighten/darken color
+local function clamp(component)
+  return math.min(math.max(component, 0), 255)
+end
+function LightenDarkenColor(num, amt)
+  local r = math.floor(num / 0x10000) + amt
+  local g = (math.floor(num / 0x100) % 0x100) + amt
+  local b = (num % 0x100) + amt
+  return string.format("#%x", clamp(r) * 0x10000 + clamp(g) * 0x100 + clamp(b))
+end
+
 --- Set the foreground and background color of 'CursorLineNr'
 --- @param hl_name string Name of mode highlight group
 function M.set_cursor_line_highlight(hl_name)
@@ -141,7 +152,13 @@ function M.set_cursor_line_highlight(hl_name)
     local cl = require('modicator.utils').get_highlight('CursorLine')
     hl = vim.tbl_extend('keep', { bg = cl.bg }, hl)
   end
+
+  local line_bg = LightenDarkenColor(hl['bg'], -100)
+
   api.nvim_set_hl(0, 'CursorLineNr', hl)
+  api.nvim_set_hl(0, 'CursorLine', { bg = line_bg })
+  api.nvim_set_hl(0, 'CursorLineFold', hl)
+  api.nvim_set_hl(0, 'CursorLineSign', hl)
 
   local register_is_executing = vim.fn.reg_executing() ~= ""
 

@@ -94,7 +94,7 @@ local function set_highlight_from_lualine(mode, mode_section_letter)
   if hl and not highlight_exists(mode_hl_group) then
     local options = modicator.get_options()
     local highlight_level = options.integration.lualine.highlight
-    vim.api.nvim_set_hl(0, mode_hl_group, { fg = hl[highlight_level] })
+    vim.api.nvim_set_hl(0, mode_hl_group, { bg = hl[highlight_level], fg = hl['fg'] })
   end
 end
 
