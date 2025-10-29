@@ -1,4 +1,4 @@
-*modicator.txt*            For NVIM v0.8.0           Last change: 2024 June 19
+*modicator.txt*          For NVIM v0.8.0          Last change: 2025 October 24
 
 ==============================================================================
 Table of Contents                                *modicator-table-of-contents*
@@ -122,6 +122,8 @@ DEFAULT CONFIGURATION: ~
           bold = false,
           italic = false,
         },
+        -- Use `CursorLine`'s background color for `CursorLineNr`'s background
+        use_cursorline_background = false,
       },
       integration = {
         lualine = {

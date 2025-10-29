@@ -7,18 +7,22 @@ local M = {}
 --- @field mode_section? LualineSectionLetter If `nil`, gets detected automatically. See `:help lualine-usage-and-customization`
 --- @field highlight? 'bg' | 'fg' Whether to use the highlight's foreground or background
 
+--- @class ModicatorHighlightOptions
+--- @field defaults? { bold?: boolean, italic?: boolean } Default highlight options
+--- @field use_cursorline_background? boolean Use `CursorLine`'s background color for `CursorLineNr`'s background
+
 --- @class ModicatorOptions
 --- @field show_warnings? boolean Show warning on VimEnter if any required option is missing
---- @field highlights? { defaults?: { bold?: boolean, italic?: boolean } }
+--- @field highlights? ModicatorHighlightOptions
 --- @field integration? { lualine?: ModicatorLualineIntegration }
 local options = {
-  --- @type boolean
   show_warnings = false,
   highlights = {
     defaults = {
       bold = false,
       italic = false,
     },
+    use_cursorline_background = false,
   },
   integration = {
     lualine = {
@@ -29,68 +33,12 @@ local options = {
   },
 }
 
+---@type integer?
+local augroup_id = nil
+
 --- @return ModicatorOptions
-M.get_options = function()
+function M.get_options()
   return options
-end
-
---- @return table
-local function get_missing_options(opts)
-  return vim.iter(opts):filter(function(opt) return not vim.o[opt] end)
-end
-
-local function warn_missing_options(opts)
-  for _, opt in pairs(opts) do
-    if not vim.o[opt] then
-      local message = string.format(
-        'Modicator requires `%s` to be set. Run `:set %s` or add `vim.o.%s '
-        .. '= true` to your init.lua',
-        opt,
-        opt,
-        opt
-      )
-      require('modicator.utils').warn(message)
-    end
-  end
-end
-
---- @param opts table
-local function check_deprecated_config(opts)
-  if opts.highlights and opts.highlights.modes then
-    local message = 'configuration of highlights has changed to highlight '
-        .. 'groups rather than using `highlights.modes`. Check `:help '
-        .. 'modicator-configuration` to see the new configuration API.'
-    require('modicator.utils').warn(message)
-  end
-end
-
-local function show_warnings()
-  if options.show_warnings then
-    local missing_options = get_missing_options({
-      'cursorline',
-      'number',
-      'termguicolors',
-    }):totable()
-
-    if #missing_options > 0 then
-      warn_missing_options(missing_options)
-
-      local message = 'If you\'ve you have already set '
-          .. 'those options in your config, this warning is likely '
-          .. 'caused by another plugin temporarily modifying those '
-          .. 'options for this buffer. If Modicator works as expected in '
-          .. 'other buffers you can remove the `show_warnings` option '
-          .. 'from your Modicator configuration.'
-      require('modicator.utils').inform(message)
-    end
-
-    check_deprecated_config(options)
-  end
-end
-
-local function lualine_is_loaded()
-  local ok, _ = pcall(require, 'lualine')
-  return ok
 end
 
 local function mode_name_from_mode(mode)
@@ -111,7 +59,7 @@ local function mode_name_from_mode(mode)
 end
 
 --- @param mode string
-M.hl_name_from_mode = function(mode)
+function M.hl_name_from_mode(mode)
   local mode_name = mode_name_from_mode(mode)
   return mode_name .. 'Mode'
 end
@@ -168,6 +116,11 @@ local function set_fallback_highlight_groups()
   end
 end
 
+local function lualine_is_loaded()
+  local ok, _ = pcall(require, 'lualine')
+  return ok
+end
+
 local function set_highlight_groups()
   if lualine_is_loaded() and options.integration.lualine.enabled then
     local mode_section = options.integration.lualine.mode_section
@@ -179,28 +132,32 @@ local function set_highlight_groups()
   update_mode()
 end
 
---- Set the foreground and background color of 'CursorLineNr'. Accepts any
---- highlight definition map that `vim.api.nvim_set_hl()` does.
---- @param hl_name string
-M.set_cursor_line_highlight = function(hl_name)
+--- Set the foreground and background color of 'CursorLineNr'
+--- @param hl_name string Name of mode highlight group
+function M.set_cursor_line_highlight(hl_name)
   local hl_group = require('modicator.utils').get_highlight(hl_name)
   local hl = vim.tbl_extend('force', options.highlights.defaults, hl_group)
+  if options.highlights.use_cursorline_background == true then
+    local cl = require('modicator.utils').get_highlight('CursorLine')
+    hl = vim.tbl_extend('keep', { bg = cl.bg }, hl)
+  end
   api.nvim_set_hl(0, 'CursorLineNr', hl)
 
-  local is_register_executing = vim.fn.reg_executing() ~= ""
+  local register_is_executing = vim.fn.reg_executing() ~= ""
 
   -- Workaround for https://github.com/neovim/neovim/issues/25851
-  if not vim.o.lazyredraw and not is_register_executing then
+  if not vim.o.lazyredraw and not register_is_executing then
     vim.cmd.redraw()
   end
 end
 
+---@return integer augroup Augroup ID
 local function create_autocmds()
   local augroup = api.nvim_create_augroup('Modicator', {})
   -- NOTE: VimEnter loads after user's configuration is loaded
   api.nvim_create_autocmd('VimEnter', {
     callback = function()
-      show_warnings()
+      require('modicator.notifications').show_warnings()
       update_mode()
     end,
     group = augroup,
@@ -213,17 +170,36 @@ local function create_autocmds()
     callback = set_highlight_groups,
     group = augroup,
   })
+
+  return augroup
+end
+
+--- Enable Modicator
+function M.enable()
+  set_highlight_groups()
+
+  api.nvim_set_hl(0, 'CursorLineNr', { link = 'NormalMode' })
+
+  augroup_id = create_autocmds()
+end
+
+--- Disable Modicator
+function M.disable()
+  if augroup_id then
+    api.nvim_del_augroup_by_id(augroup_id)
+    augroup_id = nil
+  end
+
+  require('modicator.backup').restore_default_cursorline_hl()
 end
 
 --- @param opts ModicatorOptions?
 function M.setup(opts)
   options = vim.tbl_deep_extend('force', options, opts or {})
 
-  set_highlight_groups()
+  require('modicator.backup').backup_default_cursorline_hl()
 
-  vim.api.nvim_set_hl(0, 'CursorLineNr', { link = 'NormalMode' })
-
-  create_autocmds()
+  M.enable()
 end
 
 return M

@@ -100,14 +100,14 @@ end
 
 --- Set mode highlights based on lualine's mode highlights
 --- @param mode_section LualineSectionLetter?
-M.use_lualine_mode_highlights = function(mode_section)
+function M.use_lualine_mode_highlights(mode_section)
   mode_section = mode_section or get_mode_section_letter()
   -- If lualine doesn't have a `mode` section and none was passed in
   if mode_section == nil then
     local message = "'integration.lualine.enabled' is true, but no lualine "
         .. "mode section was found. Please set it manually in "
         .. "'integration.lualine.mode_section'"
-    require('modicator.utils').warn(message)
+    require('modicator.notifications').warn(message)
     return
   end
 
