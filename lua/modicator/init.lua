@@ -159,13 +159,6 @@ function M.set_cursor_line_highlight(hl_name)
   api.nvim_set_hl(0, 'CursorLine', { bg = line_bg })
   api.nvim_set_hl(0, 'CursorLineFold', hl)
   api.nvim_set_hl(0, 'CursorLineSign', hl)
-
-  local register_is_executing = vim.fn.reg_executing() ~= ""
-
-  -- Workaround for https://github.com/neovim/neovim/issues/25851
-  if not vim.o.lazyredraw and not register_is_executing then
-    vim.cmd.redraw()
-  end
 end
 
 ---@return integer augroup Augroup ID
